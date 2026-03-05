@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Finanzen">
+<title>Meine Finanzen</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#0f1117; --card:#1a1d27; --card2:#22263a; --accent:#6c63ff;
+  --green:#00d4aa; --red:#ff6584; --yellow:#ffd166; --blue:#4cc9f0;
+  --text:#e8eaf6; --muted:#7c83a0; --border:#2e3250;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;padding-bottom:80px;}
+/* NAV */
+nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom);}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;background:none;border:none;color:var(--muted);font-size:0.65rem;gap:4px;cursor:pointer;transition:color 0.2s;}
+.nav-btn .icon{font-size:1.3rem;}
+.nav-btn.active{color:var(--accent);}
+/* HEADER */
+header{background:linear-gradient(135deg,#12152a,#1a1d27);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;}
+header h1{font-size:1.1rem;font-weight:700;}
+header h1 span{color:var(--accent);}
+.header-right{display:flex;gap:8px;align-items:center;}
+/* PAGES */
+.page{display:none;padding:16px 20px;}
+.page.active{display:block;}
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px;}
+.card h2{font-size:0.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:14px;}
+/* KPI GRID */
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;position:relative;overflow:hidden;}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:12px 12px 0 0;}
+.kpi.g::before{background:var(--green);}
+.kpi.r::before{background:var(--red);}
+.kpi.p::before{background:var(--accent);}
+.kpi.b::before{background:var(--blue);}
+.kpi.y::before{background:var(--yellow);}
+.kpi-label{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;}
+.kpi-value{font-size:1.25rem;font-weight:700;}
+.kpi-value.g{color:var(--green);}
+.kpi-value.r{color:var(--red);}
+.kpi-value.p{color:var(--accent);}
+.kpi-value.b{color:var(--blue);}
+.kpi-value.y{color:var(--yellow);}
+.kpi-sub{font-size:0.68rem;color:var(--muted);margin-top:3px;}
+/* CHART */
+.chart-wrap{position:relative;height:200px;}
+.chart-wrap-sm{position:relative;height:160px;}
+/* MONTH NAV */
+.month-nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;scrollbar-width:none;}
+.month-nav::-webkit-scrollbar{display:none;}
+.m-btn{flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--card2);color:var(--muted);font-size:0.78rem;cursor:pointer;transition:all 0.2s;}
+.m-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+/* TABLE */
+.fin-table{width:100%;border-collapse:collapse;font-size:0.82rem;}
+.fin-table th{padding:8px 10px;text-align:left;font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);}
+.fin-table td{padding:9px 10px;border-bottom:1px solid var(--border);}
+.fin-table tr:last-child td{border-bottom:none;}
+.fin-table input[type=number]{background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;width:100%;font-size:0.82rem;max-width:110px;}
+.fin-table input[type=number]:focus{outline:none;border-color:var(--accent);}
+.cat-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:7px;flex-shrink:0;}
+.cat-cell{display:flex;align-items:center;}
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:10px;padding:10px 18px;font-size:0.85rem;font-weight:600;cursor:pointer;transition:opacity 0.2s;}
+.btn:hover{opacity:0.85;}
+.btn.primary{background:linear-gradient(135deg,var(--accent),#8b5cf6);color:#fff;}
+.btn.success{background:linear-gradient(135deg,var(--green),#00a896);color:#fff;}
+.btn.danger{background:linear-gradient(135deg,var(--red),#e0435e);color:#fff;}
+.btn.muted{background:var(--card2);color:var(--text);border:1px solid var(--border);}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+/* DEPOT */
+.depot-item{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);}
+.depot-item:last-child{border-bottom:none;}
+.depot-name{font-weight:600;font-size:0.9rem;}
+.depot-sub{font-size:0.72rem;color:var(--muted);margin-top:2px;}
+.depot-right{text-align:right;}
+.depot-val{font-weight:700;font-size:0.95rem;}
+.depot-change{font-size:0.72rem;margin-top:2px;}
+.pos{color:var(--green);}
+.neg{color:var(--red);}
+/* FORM */
+.form-row{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;}
+.form-row label{font-size:0.75rem;color:var(--muted);}
+.form-row input,.form-row select{background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-size:0.85rem;width:100%;}
+.form-row input:focus,.form-row select:focus{outline:none;border-color:var(--accent);}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:flex-end;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--card);border-radius:20px 20px 0 0;padding:24px 20px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;}
+.modal h3{font-size:1rem;font-weight:700;margin-bottom:16px;}
+/* PROG */
+.prog-row{margin-bottom:12px;}
+.prog-label{display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:5px;}
+.prog-bar{height:5px;background:var(--border);border-radius:99px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:99px;transition:width 0.5s;}
+/* TOAST */
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 20px;border-radius:20px;font-size:0.85rem;font-weight:600;z-index:300;opacity:0;transition:opacity 0.3s;pointer-events:none;}
+.toast.show{opacity:1;}
+/* SECTION DIVIDER */
+.section-title{font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin:16px 0 8px;font-weight:700;}
+/* SETTINGS */
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);}
+.setting-row:last-child{border-bottom:none;}
+.setting-label{font-size:0.88rem;}
+.setting-sub{font-size:0.72rem;color:var(--muted);margin-top:2px;}
+/* INSTALL BANNER */
+.install-banner{background:linear-gradient(135deg,var(--accent),#8b5cf6);border-radius:14px;padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;}
+.install-banner .icon{font-size:2rem;}
+.install-banner h3{font-size:0.9rem;font-weight:700;margin-bottom:3px;}
+.install-banner p{font-size:0.75rem;opacity:0.85;}
+.install-banner button{margin-left:auto;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);color:#fff;border-radius:8px;padding:8px 14px;font-size:0.8rem;cursor:pointer;flex-shrink:0;}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<header>
+  <h1>💸 Meine <span>Finanzen</span></h1>
+  <div class="header-right">
+    <select id="yearSel" style="background:var(--card2);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:8px;font-size:0.8rem;">
+      <option>2024</option><option>2025</option><option selected>2026</option><option>2027</option>
+    </select>
+  </div>
+</header>
+
+<!-- ░░ DASHBOARD ░░ -->
+<div class="page active" id="page-dashboard">
+
+  <div id="installBanner" class="install-banner" style="display:none;">
+    <div class="icon">📲</div>
+    <div><h3>App installieren</h3><p>Zum Startbildschirm hinzufügen für schnellen Zugriff</p></div>
+    <button onclick="installApp()">Installieren</button>
+  </div>
+
+  <div class="section-title">Gesamtvermögen</div>
+  <div class="kpi-grid">
+    <div class="kpi g" style="grid-column:1/-1">
+      <div class="kpi-label">Gesamtvermögen</div>
+      <div class="kpi-value g" id="d-total" style="font-size:1.8rem">€ 0,00</div>
+      <div class="kpi-sub">Konto + Depot</div>
+    </div>
+    <div class="kpi p"><div class="kpi-label">Jahreseinnahmen</div><div class="kpi-value p" id="d-inc">€ 0</div></div>
+    <div class="kpi r"><div class="kpi-label">Jahresausgaben</div><div class="kpi-value r" id="d-exp">€ 0</div></div>
+    <div class="kpi b"><div class="kpi-label">Depot-Wert</div><div class="kpi-value b" id="d-depot">€ 0</div></div>
+    <div class="kpi y"><div class="kpi-label">Jahressaldo</div><div class="kpi-value y" id="d-bal">€ 0</div></div>
+  </div>
+
+  <div class="card">
+    <h2>📅 Monatsverlauf</h2>
+    <div class="chart-wrap"><canvas id="dashBarChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h2>💼 Depot-Übersicht</h2>
+    <div id="depotPreview"></div>
+    <div class="btn-row"><button class="btn muted" onclick="showPage('page-depot')">Depot öffnen →</button></div>
+  </div>
+
+  <div class="card">
+    <h2>🥧 Ausgaben nach Kategorie</h2>
+    <div class="chart-wrap-sm"><canvas id="dashPieChart"></canvas></div>
+  </div>
+</div>
+
+<!-- ░░ FINANZEN ░░ -->
+<div class="page" id="page-finanzen">
+  <div class="month-nav" id="monthNav"></div>
+
+  <div class="kpi-grid">
+    <div class="kpi g"><div class="kpi-label">Einnahmen</div><div class="kpi-value g" id="m-inc">€ 0</div></div>
+    <div class="kpi r"><div class="kpi-label">Ausgaben</div><div class="kpi-value r" id="m-exp">€ 0</div></div>
+    <div class="kpi p"><div class="kpi-label">Saldo</div><div class="kpi-value p" id="m-bal">€ 0</div></div>
+    <div class="kpi b"><div class="kpi-label">Sparquote</div><div class="kpi-value b" id="m-save">0 %</div></div>
+  </div>
+
+  <div class="card">
+    <h2>✅ Einnahmen</h2>
+    <table class="fin-table"><thead><tr><th>Kategorie</th><th>Betrag (€)</th></tr></thead>
+    <tbody id="incBody"></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>🔴 Ausgaben</h2>
+    <table class="fin-table"><thead><tr><th>Kategorie</th><th>Betrag (€)</th></tr></thead>
+    <tbody id="expBody"></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>📊 Monat im Überblick</h2>
+    <div class="chart-wrap-sm"><canvas id="monthChart"></canvas></div>
+  </div>
+</div>
+
+<!-- ░░ DEPOT ░░ -->
+<div class="page" id="page-depot">
+  <div class="kpi-grid">
+    <div class="kpi b" style="grid-column:1/-1"><div class="kpi-label">Depot-Gesamtwert</div><div class="kpi-value b" id="depot-total" style="font-size:1.5rem">€ 0,00</div><div class="kpi-sub" id="depot-gain-total">+€ 0,00 Gesamtrendite</div></div>
+    <div class="kpi g"><div class="kpi-label">Positionen</div><div class="kpi-value g" id="depot-count">0</div></div>
+    <div class="kpi y"><div class="kpi-label">Ø Rendite</div><div class="kpi-value y" id="depot-avg-gain">0 %</div></div>
+  </div>
+
+  <div class="card">
+    <h2>💼 Meine Positionen</h2>
+    <div id="depotList"></div>
+    <div class="btn-row">
+      <button class="btn primary" onclick="openDepotModal()">+ Position hinzufügen</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🥧 Depot-Aufteilung</h2>
+    <div class="chart-wrap"><canvas id="depotPieChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h2>📈 Performance</h2>
+    <div id="depotPerfBars"></div>
+  </div>
+</div>
+
+<!-- ░░ EINSTELLUNGEN ░░ -->
+<div class="page" id="page-settings">
+  <div class="card">
+    <h2>💾 Daten</h2>
+    <div class="setting-row">
+      <div><div class="setting-label">Daten exportieren</div><div class="setting-sub">Backup als JSON-Datei speichern</div></div>
+      <button class="btn muted" onclick="exportData()">Export</button>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">Daten importieren</div><div class="setting-sub">Backup wiederherstellen</div></div>
+      <button class="btn muted" onclick="document.getElementById('importFile').click()">Import</button>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">CSV Kontoauszug importieren</div><div class="setting-sub">Transaktionen aus dem Online-Banking laden</div></div>
+      <button class="btn muted" onclick="document.getElementById('csvFile').click()">CSV laden</button>
+    </div>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+    <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="importCSV(event)">
+  </div>
+
+  <div class="card">
+    <h2>📥 CSV Export</h2>
+    <div class="btn-row">
+      <button class="btn primary" onclick="exportCSV('jahres')">Jahresübersicht</button>
+      <button class="btn success" onclick="exportCSV('monat')">Monatsdaten</button>
+      <button class="btn muted" onclick="exportCSV('depot')">Depot</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>⚙️ App-Info</h2>
+    <div class="setting-row"><div><div class="setting-label">Version</div></div><span style="color:var(--muted);font-size:0.85rem;">1.0.0</span></div>
+    <div class="setting-row"><div><div class="setting-label">Datenspeicherung</div><div class="setting-sub">Lokal im Browser – keine Cloud</div></div><span style="color:var(--green);font-size:0.78rem;">🔒 Sicher</span></div>
+    <div class="setting-row">
+      <div><div class="setting-label" style="color:var(--red)">Alle Daten löschen</div><div class="setting-sub">Nicht rückgängig machbar!</div></div>
+      <button class="btn danger" onclick="clearAll()">Löschen</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📲 App installieren (PWA)</h2>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:14px;">So fügst du die App zum Startbildschirm hinzu:</p>
+    <div style="font-size:0.82rem;line-height:1.8;">
+      <b style="color:var(--text)">iPhone / iPad (Safari):</b><br>
+      1. Tippe auf das Teilen-Symbol <b>⬆</b><br>
+      2. Wähle „Zum Home-Bildschirm"<br>
+      3. Tippe „Hinzufügen"<br><br>
+      <b style="color:var(--text)">Android (Chrome):</b><br>
+      1. Tippe auf die drei Punkte ⋮<br>
+      2. Wähle „Zum Startbildschirm hinzufügen"<br><br>
+      <b style="color:var(--text)">Desktop (Chrome/Edge):</b><br>
+      1. Klicke auf das Install-Icon in der Adressleiste<br>
+      2. Klicke „Installieren"
+    </div>
+  </div>
+</div>
+
+<!-- ░░ BOTTOM NAV ░░ -->
+<nav>
+  <button class="nav-btn active" onclick="showPage('page-dashboard')" id="nav-dashboard">
+    <span class="icon">🏠</span><span>Start</span>
+  </button>
+  <button class="nav-btn" onclick="showPage('page-finanzen')" id="nav-finanzen">
+    <span class="icon">💰</span><span>Finanzen</span>
+  </button>
+  <button class="nav-btn" onclick="showPage('page-depot')" id="nav-depot">
+    <span class="icon">📈</span><span>Depot</span>
+  </button>
+  <button class="nav-btn" onclick="showPage('page-settings')" id="nav-settings">
+    <span class="icon">⚙️</span><span>Einstellungen</span>
+  </button>
+</nav>
+
+<!-- ░░ DEPOT MODAL ░░ -->
+<div class="modal-overlay" id="depotModal">
+  <div class="modal">
+    <h3>Position hinzufügen / bearbeiten</h3>
+    <input type="hidden" id="depotEditIdx" value="-1">
+    <div class="form-grid">
+      <div class="form-row"><label>Name / Ticker</label><input id="d-name" placeholder="z.B. Apple / AAPL"></div>
+      <div class="form-row"><label>Typ</label>
+        <select id="d-type"><option>Aktie</option><option>ETF</option><option>Krypto</option><option>Anleihe</option><option>Sonstiges</option></select>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row"><label>Anzahl / Einheiten</label><input type="number" id="d-qty" placeholder="10" min="0" step="any"></div>
+      <div class="form-row"><label>Kaufpreis pro Stück (€)</label><input type="number" id="d-buy" placeholder="150.00" min="0" step="any"></div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row"><label>Aktueller Kurs (€)</label><input type="number" id="d-cur" placeholder="175.00" min="0" step="any"></div>
+      <div class="form-row"><label>Sektor</label>
+        <select id="d-sector"><option>Technologie</option><option>Finanzen</option><option>Gesundheit</option><option>Energie</option><option>Konsum</option><option>Industrie</option><option>Immobilien</option><option>Sonstiges</option></select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn primary" onclick="saveDepotItem()">Speichern</button>
+      <button class="btn muted" onclick="closeDepotModal()">Abbrechen</button>
+      <button class="btn danger" id="deleteDepotBtn" style="display:none" onclick="deleteDepotItem()">Löschen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+const MONTHS=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+const MONTH_FULL=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const INC_CATS=[
+  {name:'Gehalt / Lohn',color:'#6c63ff'},{name:'Nebeneinkommen',color:'#8b5cf6'},
+  {name:'Kapitalerträge',color:'#a78bfa'},{name:'Sonstige Einnahmen',color:'#c4b5fd'}
+];
+const EXP_CATS=[
+  {name:'Miete / Hypothek',color:'#ff6584'},{name:'Nebenkosten',color:'#ff8fa3'},
+  {name:'Lebensmittel',color:'#ffa726'},{name:'Transport',color:'#ffcc02'},
+  {name:'Versicherungen',color:'#26c6da'},{name:'Telefon & Internet',color:'#42a5f5'},
+  {name:'Freizeit',color:'#66bb6a'},{name:'Kleidung',color:'#ab47bc'},
+  {name:'Gesundheit',color:'#ef5350'},{name:'Essen gehen',color:'#ff7043'},
+  {name:'Abonnements',color:'#26a69a'},{name:'Sonstiges',color:'#78909c'}
+];
+const TYPE_COLORS={Aktie:'#6c63ff',ETF:'#00d4aa',Krypto:'#ffd166',Anleihe:'#4cc9f0',Sonstiges:'#78909c'};
+
+let state = {
+  incData: Array.from({length:12},()=>Array(INC_CATS.length).fill(0)),
+  expData: Array.from({length:12},()=>Array(EXP_CATS.length).fill(0)),
+  depot: [],
+  year: 2026
+};
+let curMonth = new Date().getMonth();
+let charts = {};
+let deferredPrompt = null;
+
+// ─── STORAGE ──────────────────────────────────────────────────────────────────
+function saveState() {
+  try { localStorage.setItem('finanzapp_'+state.year, JSON.stringify(state)); } catch(e){}
+}
+function loadState() {
+  const yr = +document.getElementById('yearSel').value;
+  const raw = localStorage.getItem('finanzapp_'+yr);
+  if(raw) {
+    const s = JSON.parse(raw);
+    state = { incData: s.incData||Array.from({length:12},()=>Array(INC_CATS.length).fill(0)),
+              expData: s.expData||Array.from({length:12},()=>Array(EXP_CATS.length).fill(0)),
+              depot: s.depot||[], year: yr };
+  } else {
+    state = { incData: Array.from({length:12},()=>Array(INC_CATS.length).fill(0)),
+              expData: Array.from({length:12},()=>Array(EXP_CATS.length).fill(0)),
+              depot: [], year: yr };
+  }
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+const fmt = n => '€\u00a0' + n.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtShort = n => '€\u00a0' + n.toLocaleString('de-DE',{maximumFractionDigits:0});
+function toast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+const chartOpts = (extra={}) => ({responsive:true,maintainAspectRatio:false,
+  plugins:{legend:{labels:{color:'#7c83a0',boxWidth:10,font:{size:10}}}},
+  scales:{x:{ticks:{color:'#7c83a0',font:{size:10}},grid:{color:'#2e3250'}},
+          y:{ticks:{color:'#7c83a0',font:{size:10},callback:v=>'€'+v.toLocaleString('de-DE')},grid:{color:'#2e3250'}}},
+  ...extra});
+
+// ─── NAVIGATION ───────────────────────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const navId = 'nav-'+id.replace('page-','');
+  if(document.getElementById(navId)) document.getElementById(navId).classList.add('active');
+  if(id==='page-dashboard') renderDashboard();
+  if(id==='page-finanzen') renderMonthPage();
+  if(id==='page-depot') renderDepot();
+}
+
+// ─── MONTH PAGE ───────────────────────────────────────────────────────────────
+function buildMonthNav() {
+  const nav=document.getElementById('monthNav'); nav.innerHTML='';
+  MONTHS.forEach((m,i)=>{
+    const b=document.createElement('button');
+    b.className='m-btn'+(i===curMonth?' active':'');
+    b.textContent=m;
+    b.onclick=()=>{curMonth=i;buildMonthNav();renderMonthPage();};
+    nav.appendChild(b);
+  });
+}
+
+function renderMonthPage() {
+  buildMonthNav();
+  const incBody=document.getElementById('incBody'); incBody.innerHTML='';
+  INC_CATS.forEach((cat,ci)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><div class="cat-cell"><span class="cat-dot" style="background:${cat.color}"></span>${cat.name}</div></td>
+      <td><input type="number" min="0" value="${state.incData[curMonth][ci]||''}" placeholder="0"
+        oninput="state.incData[curMonth][${ci}]=+this.value;saveState();updateMonthKPIs();"></td>`;
+    incBody.appendChild(tr);
+  });
+  const expBody=document.getElementById('expBody'); expBody.innerHTML='';
+  EXP_CATS.forEach((cat,ci)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><div class="cat-cell"><span class="cat-dot" style="background:${cat.color}"></span>${cat.name}</div></td>
+      <td><input type="number" min="0" value="${state.expData[curMonth][ci]||''}" placeholder="0"
+        oninput="state.expData[curMonth][${ci}]=+this.value;saveState();updateMonthKPIs();"></td>`;
+    expBody.appendChild(tr);
+  });
+  updateMonthKPIs();
+}
+
+function updateMonthKPIs() {
+  const inc=state.incData[curMonth].reduce((a,b)=>a+b,0);
+  const exp=state.expData[curMonth].reduce((a,b)=>a+b,0);
+  const bal=inc-exp; const save=inc>0?bal/inc*100:0;
+  document.getElementById('m-inc').textContent=fmt(inc);
+  document.getElementById('m-exp').textContent=fmt(exp);
+  document.getElementById('m-bal').textContent=fmt(bal);
+  document.getElementById('m-save').textContent=save.toFixed(1)+' %';
+  // mini chart
+  destroyChart('month');
+  charts.month=new Chart(document.getElementById('monthChart'),{
+    type:'bar',
+    data:{labels:['Einnahmen','Ausgaben','Saldo'],
+      datasets:[{data:[inc,exp,bal],
+        backgroundColor:['rgba(108,99,255,0.7)','rgba(255,101,132,0.7)',bal>=0?'rgba(0,212,170,0.7)':'rgba(255,101,132,0.7)'],
+        borderRadius:8,borderSkipped:false}]},
+    options:{...chartOpts(),plugins:{legend:{display:false}}}
+  });
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────────────────────────
+function renderDashboard() {
+  const totalInc=state.incData.reduce((s,m)=>s+m.reduce((a,b)=>a+b,0),0);
+  const totalExp=state.expData.reduce((s,m)=>s+m.reduce((a,b)=>a+b,0),0);
+  const depotVal=state.depot.reduce((s,d)=>s+(d.qty||0)*(d.cur||0),0);
+  const bal=totalInc-totalExp;
+  document.getElementById('d-inc').textContent=fmtShort(totalInc);
+  document.getElementById('d-exp').textContent=fmtShort(totalExp);
+  document.getElementById('d-bal').textContent=fmtShort(bal);
+  document.getElementById('d-depot').textContent=fmtShort(depotVal);
+  document.getElementById('d-total').textContent=fmt(bal+depotVal);
+
+  // depot preview
+  const dp=document.getElementById('depotPreview');
+  if(state.depot.length===0){dp.innerHTML='<p style="color:var(--muted);font-size:0.82rem;">Noch keine Positionen eingetragen.</p>';}
+  else {
+    dp.innerHTML=state.depot.slice(0,3).map(d=>{
+      const val=(d.qty||0)*(d.cur||0);
+      const gain=val-((d.qty||0)*(d.buy||0));
+      const pct=d.buy>0?gain/((d.qty||0)*(d.buy||0))*100:0;
+      return `<div class="depot-item">
+        <div><div class="depot-name">${d.name}</div><div class="depot-sub">${d.type} · ${d.qty} Stk.</div></div>
+        <div class="depot-right"><div class="depot-val">${fmt(val)}</div>
+        <div class="depot-change ${gain>=0?'pos':'neg'}">${gain>=0?'+':''}${fmt(gain)} (${pct.toFixed(1)}%)</div></div></div>`;
+    }).join('')+(state.depot.length>3?`<div style="font-size:0.75rem;color:var(--muted);padding:8px 0;">+${state.depot.length-3} weitere Positionen</div>`:'');
+  }
+
+  // bar chart
+  const incByM=MONTHS.map((_,i)=>state.incData[i].reduce((a,b)=>a+b,0));
+  const expByM=MONTHS.map((_,i)=>state.expData[i].reduce((a,b)=>a+b,0));
+  destroyChart('dashBar');
+  charts.dashBar=new Chart(document.getElementById('dashBarChart'),{
+    type:'bar',
+    data:{labels:MONTHS,datasets:[
+      {label:'Einnahmen',data:incByM,backgroundColor:'rgba(108,99,255,0.7)',borderRadius:5,borderSkipped:false},
+      {label:'Ausgaben',data:expByM,backgroundColor:'rgba(255,101,132,0.7)',borderRadius:5,borderSkipped:false}
+    ]},options:chartOpts()
+  });
+
+  // pie
+  const expByCat=EXP_CATS.map((c,ci)=>state.expData.reduce((s,m)=>s+m[ci],0));
+  destroyChart('dashPie');
+  charts.dashPie=new Chart(document.getElementById('dashPieChart'),{
+    type:'doughnut',
+    data:{labels:EXP_CATS.map(c=>c.name),datasets:[{data:expByCat,backgroundColor:EXP_CATS.map(c=>c.color),borderWidth:0,hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'right',labels:{color:'#7c83a0',boxWidth:8,font:{size:10}}}}}
+  });
+}
+
+// ─── DEPOT ────────────────────────────────────────────────────────────────────
+function renderDepot() {
+  const items=state.depot;
+  const total=items.reduce((s,d)=>s+(d.qty||0)*(d.cur||0),0);
+  const totalCost=items.reduce((s,d)=>s+(d.qty||0)*(d.buy||0),0);
+  const gain=total-totalCost;
+  const avgPct=totalCost>0?gain/totalCost*100:0;
+  document.getElementById('depot-total').textContent=fmt(total);
+  document.getElementById('depot-gain-total').textContent=(gain>=0?'+':'')+fmt(gain)+' Gesamtrendite';
+  document.getElementById('depot-gain-total').className=gain>=0?'kpi-sub pos':'kpi-sub neg';
+  document.getElementById('depot-count').textContent=items.length;
+  document.getElementById('depot-avg-gain').textContent=(avgPct>=0?'+':'')+avgPct.toFixed(1)+' %';
+
+  const list=document.getElementById('depotList');
+  if(items.length===0){list.innerHTML='<p style="color:var(--muted);font-size:0.82rem;padding:8px 0;">Noch keine Positionen. Füge deine erste Aktie oder ETF hinzu!</p>';}
+  else list.innerHTML=items.map((d,i)=>{
+    const val=(d.qty||0)*(d.cur||0);
+    const g=val-((d.qty||0)*(d.buy||0));
+    const p=d.buy>0?g/((d.qty||0)*(d.buy||0))*100:0;
+    return `<div class="depot-item" onclick="editDepotItem(${i})" style="cursor:pointer;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:36px;height:36px;border-radius:10px;background:${TYPE_COLORS[d.type]||'#78909c'}22;display:flex;align-items:center;justify-content:center;font-size:1.1rem;">${d.type==='ETF'?'📦':d.type==='Krypto'?'₿':d.type==='Anleihe'?'📜':'📊'}</div>
+        <div><div class="depot-name">${d.name}</div><div class="depot-sub">${d.type} · ${d.qty} Stk. · Kauf: ${fmt(d.buy)}</div></div>
+      </div>
+      <div class="depot-right"><div class="depot-val">${fmt(val)}</div>
+      <div class="depot-change ${g>=0?'pos':'neg'}">${g>=0?'+':''}${p.toFixed(1)} %</div></div></div>`;
+  }).join('');
+
+  // pie
+  destroyChart('depotPie');
+  if(items.length>0){
+    charts.depotPie=new Chart(document.getElementById('depotPieChart'),{
+      type:'doughnut',
+      data:{labels:items.map(d=>d.name),
+        datasets:[{data:items.map(d=>(d.qty||0)*(d.cur||0)),
+          backgroundColor:items.map(d=>TYPE_COLORS[d.type]||'#78909c'),borderWidth:0,hoverOffset:6}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'55%',
+        plugins:{legend:{position:'right',labels:{color:'#7c83a0',boxWidth:8,font:{size:10}}}}}
+    });
+  }
+
+  // perf bars
+  const pb=document.getElementById('depotPerfBars'); pb.innerHTML='';
+  items.forEach(d=>{
+    const val=(d.qty||0)*(d.cur||0);
+    const g=val-((d.qty||0)*(d.buy||0));
+    const p=d.buy>0?g/((d.qty||0)*(d.buy||0))*100:0;
+    const pct=Math.min(Math.abs(p),100);
+    pb.innerHTML+=`<div class="prog-row">
+      <div class="prog-label"><span>${d.name}</span><span class="${g>=0?'pos':'neg'}">${g>=0?'+':''}${p.toFixed(1)} % (${fmt(g)})</span></div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${g>=0?'var(--green)':'var(--red)'}"></div></div>
+    </div>`;
+  });
+}
+
+function openDepotModal(idx=-1) {
+  document.getElementById('depotEditIdx').value=idx;
+  if(idx>=0){
+    const d=state.depot[idx];
+    document.getElementById('d-name').value=d.name;
+    document.getElementById('d-type').value=d.type;
+    document.getElementById('d-qty').value=d.qty;
+    document.getElementById('d-buy').value=d.buy;
+    document.getElementById('d-cur').value=d.cur;
+    document.getElementById('d-sector').value=d.sector||'Sonstiges';
+    document.getElementById('deleteDepotBtn').style.display='inline-flex';
+  } else {
+    ['d-name','d-qty','d-buy','d-cur'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('d-type').value='Aktie';
+    document.getElementById('d-sector').value='Technologie';
+    document.getElementById('deleteDepotBtn').style.display='none';
+  }
+  document.getElementById('depotModal').classList.add('open');
+}
+function closeDepotModal(){document.getElementById('depotModal').classList.remove('open');}
+function editDepotItem(i){openDepotModal(i);}
+function saveDepotItem(){
+  const idx=+document.getElementById('depotEditIdx').value;
+  const item={name:document.getElementById('d-name').value||'Unbekannt',
+    type:document.getElementById('d-type').value,
+    qty:+document.getElementById('d-qty').value||0,
+    buy:+document.getElementById('d-buy').value||0,
+    cur:+document.getElementById('d-cur').value||0,
+    sector:document.getElementById('d-sector').value};
+  if(idx>=0) state.depot[idx]=item; else state.depot.push(item);
+  saveState(); closeDepotModal(); renderDepot(); toast('Position gespeichert ✓');
+}
+function deleteDepotItem(){
+  const idx=+document.getElementById('depotEditIdx').value;
+  state.depot.splice(idx,1);
+  saveState(); closeDepotModal(); renderDepot(); toast('Position gelöscht');
+}
+
+// ─── IMPORT / EXPORT ──────────────────────────────────────────────────────────
+function exportData(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`finanzen_backup_${state.year}.json`; a.click(); toast('Backup gespeichert ✓');
+}
+function importData(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{state=JSON.parse(ev.target.result);saveState();loadState();renderDashboard();toast('Backup importiert ✓');}
+    catch{toast('Fehler beim Import');}
+  };r.readAsText(f);
+}
+function importCSV(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    const lines=ev.target.result.split('\n');
+    let count=0;
+    lines.slice(1).forEach(line=>{
+      const parts=line.split(/[,;]/);
+      if(parts.length<3) return;
+      const dateStr=parts[0].trim();
+      const desc=parts[1]||'';
+      const amtStr=(parts[2]||'').replace(/[^0-9,\.\-]/g,'').replace(',','.');
+      const amt=parseFloat(amtStr);
+      if(isNaN(amt)) return;
+      const m=new Date(dateStr).getMonth();
+      if(isNaN(m)) return;
+      if(amt>0) state.incData[m][3]+=amt;
+      else state.expData[m][11]+=Math.abs(amt);
+      count++;
+    });
+    saveState(); renderDashboard();
+    toast(`${count} Transaktionen importiert ✓`);
+  };r.readAsText(f);
+}
+function exportCSV(type){
+  let rows=[];
+  if(type==='jahres'){
+    rows=[['Monat','Einnahmen','Ausgaben','Saldo','Sparquote']];
+    MONTHS.forEach((_,i)=>{
+      const inc=state.incData[i].reduce((a,b)=>a+b,0);
+      const exp=state.expData[i].reduce((a,b)=>a+b,0);
+      const bal=inc-exp; const save=inc>0?bal/inc*100:0;
+      rows.push([MONTH_FULL[i],inc.toFixed(2),exp.toFixed(2),bal.toFixed(2),save.toFixed(2)]);
+    });
+  } else if(type==='monat'){
+    rows=[['Monat','Kategorie','Typ','Betrag']];
+    MONTHS.forEach((m,mi)=>{
+      INC_CATS.forEach((c,ci)=>{ if(state.incData[mi][ci]) rows.push([MONTH_FULL[mi],c.name,'Einnahme',state.incData[mi][ci].toFixed(2)]); });
+      EXP_CATS.forEach((c,ci)=>{ if(state.expData[mi][ci]) rows.push([MONTH_FULL[mi],c.name,'Ausgabe',state.expData[mi][ci].toFixed(2)]); });
+    });
+  } else {
+    rows=[['Name','Typ','Stück','Kaufpreis','Aktuell','Wert','Rendite %']];
+    state.depot.forEach(d=>{
+      const val=(d.qty||0)*(d.cur||0);
+      const g=val-(d.qty||0)*(d.buy||0);
+      const p=d.buy>0?g/((d.qty||0)*(d.buy||0))*100:0;
+      rows.push([d.name,d.type,d.qty,d.buy,d.cur,val.toFixed(2),p.toFixed(2)]);
+    });
+  }
+  const csv='\uFEFF'+rows.map(r=>r.map(c=>{ const s=String(c); return s.includes(',')?`"${s}"`:s; }).join(',')).join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=`finanzen_${type}_${state.year}.csv`; a.click(); toast('CSV exportiert ✓');
+}
+function clearAll(){
+  if(confirm('Wirklich alle Daten löschen?')){
+    localStorage.removeItem('finanzapp_'+state.year);
+    loadState(); renderDashboard(); toast('Daten gelöscht');
+  }
+}
+
+// ─── PWA ──────────────────────────────────────────────────────────────────────
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault(); deferredPrompt=e;
+  document.getElementById('installBanner').style.display='flex';
+});
+function installApp(){
+  if(deferredPrompt){deferredPrompt.prompt();deferredPrompt=null;document.getElementById('installBanner').style.display='none';}
+}
+window.addEventListener('appinstalled',()=>{document.getElementById('installBanner').style.display='none';toast('App installiert! 🎉');});
+document.getElementById('depotModal').addEventListener('click',e=>{if(e.target===document.getElementById('depotModal'))closeDepotModal();});
+document.getElementById('yearSel').addEventListener('change',()=>{loadState();renderDashboard();toast('Jahr gewechselt');});
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+loadState();
+renderDashboard();
+renderMonthPage();
+</script>
+</body>
+</html>
